@@ -1,3 +1,5 @@
+
+$z_cred=Get-Content -Path 'Zonky.pwd' | ConvertFrom-Json
 Add-Type -AssemblyName System.Web
 $uri = 'https://app.zonky.cz/api/oauth/authorize?client_id=mujrobot&redirect_uri=https://app.zonky.cz/api/oauth/code&response_type=code&scope=SCOPE_APP_BASIC_INFO+SCOPE_INVESTMENT_READ&state=opaque'
 $ie = New-Object -ComObject InternetExplorer.Application
@@ -34,7 +36,7 @@ class ZonkyNxt {
 
 function login()
 {
-    $auth_code = '6OC7YE'
+    $auth_code = ''
     $auth = 'mujrobot:mujrobot' 
     $auth_b64 = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("$auth"))
     $scope = 'SCOPE_APP_BASIC_INFO SCOPE_INVESTMENT_READ'
