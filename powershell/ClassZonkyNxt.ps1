@@ -4,12 +4,13 @@ Add-Type -AssemblyName System.Web
 class zCredential {
     [string]$email
     [securestring]$password
+
     zCredential() {}
     zCredential([string]$Email,[securestring]$Password){
         $this.email=$Email
         $this.password=$Password
     } 
-    [string] get_password() {
+    [string] get_plain_password() {
         return [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($this.password))
     }
 }
@@ -19,9 +20,10 @@ class zApi {
     [string]$redirect_uri = 'https://app.zonky.cz/api/oauth/code'
     [string]$user_agent = 'zonkyNXT/1.0 (https://github.com/MilanNXT/ZonkyNxt)'    
     [string]$authorization_code
-    [string]$id
+    [string]$client_id
     [string]$name
     [string]$password
+    [System.Management.Automation.PSCustomObject]$oauth
     [System.Collections.Hashtable]$token = @{
         'access' = ''
         'type' = ''
@@ -29,8 +31,8 @@ class zApi {
         'expires_in' = ''
     }
 
-    zApi([string]$ApiId,[string]$ApiName,[string]$ApiPassword) {
-        $this.id = $ApiId
+    zApi([string]$ApiClientId,[string]$ApiName,[string]$ApiPassword) {
+        $this.client_id = $ApiClientId
         $this.name = $ApiName
         $this.password = $ApiPassword
     }
@@ -40,7 +42,7 @@ class zApi {
     [string] get_credential() {
         return [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("$($this.name):$($this.password)"))
     }
-    [void] get_token()
+    [void] get_access_token()
     {
         $Headers = @{
             'Content-Type'='application/x-www-form-urlencoded'
@@ -50,7 +52,8 @@ class zApi {
         $body = "scope=$($this.get_scope())&grant_type=authorization_code&code=$($this.authorization_code)&redirect_uri=$($this.redirect_uri)"
         $uri = "https://api.zonky.cz/oauth/token"
         try {
-            $this.token = Invoke-RestMethod -Method POST -Uri $URI -Headers $Headers -Body $Body -UseBasicParsing
+            $tkn = Invoke-RestMethod -Method POST -Uri $URI -Headers $Headers -Body $Body -UseBasicParsing
+            
         } catch {
             $ex = $_
             Write-Host $ex.Exception.Message
@@ -59,10 +62,10 @@ class zApi {
 }
 
 class zLogin {
-    hidden [string]$login_uri = 'https://app.zonky.cz/api/oauth/authorize?client_id=mujrobot&redirect_uri=https://app.zonky.cz/api/oauth/code&response_type=code&scope=SCOPE_APP_BASIC_INFO+SCOPE_INVESTMENT_READ&state=opaque'
     hidden [string]$pwd_file
     [zCredential]$credential
     [zApi]$api = [zApi]::new('mujrobot','mujrobot','mujrobot')
+    hidden [string]$login_uri = "https://app.zonky.cz/api/oauth/authorize?client_id=$($this.api.client_id)&redirect_uri=$($this.api.redirect_uri)&response_type=code&scope=$($this.api.get_scope('+'))&state=opaque"
 
     hidden init() {
         $this.init('ZonkyNxt.pwd')
@@ -93,17 +96,29 @@ class zLogin {
     }
     [void] login() {
         $ie = New-Object -ComObject InternetExplorer.Application
-        $ie.Visible=$false
-        $ie.Navigate($this.login_uri)
-        while ($ie.ReadyState -ne 4) {Start-Sleep -m 100}
-        $ie.document.getElementById("email").value = $this.credential.email
-        $ie.document.getElementById("password").value = $this.credential.get_password()
-        $ie.Document.getElementById("login-form").submit()
-        while ($ie.ReadyState -ne 4) {Start-Sleep -m 100}
-        $uri_code = [uri]$ie.LocationURL
-        $this.api.authorization_code=[System.Web.HttpUtility]::ParseQueryString(($uri_code).Query)['code']
-        $ie.Stop()
-        $ie.Quit()        
+        try{
+            $ie.Visible=$true
+            $ie.Navigate($this.login_uri)
+            while ($ie.ReadyState -ne 4) {Start-Sleep -m 100}
+            if ($ie.document.getElementById("email")) {
+                $ie.document.getElementById("email").value = $this.credential.email
+                $ie.document.getElementById("password").value = $this.credential.get_plain_password()
+                $ie.Document.getElementById("login-form").submit()
+                while ($ie.ReadyState -ne 4) {Start-Sleep -m 100}
+            }
+            if ($ie.LocationURL) {
+                $uri_code = [uri]$ie.LocationURL
+                $this.api.authorization_code=[System.Web.HttpUtility]::ParseQueryString(($uri_code).Query)['code']
+            }
+        } catch {
+            $ex = $_
+            Write-Host "Unable to precess Login..."
+            Write-Host $ex.Exception.Message
+
+        } finally {
+            $ie.Stop()
+            $ie.Quit()        
+        }
     }
 }
 
@@ -113,7 +128,7 @@ class ZonkyNxt {
     ZonkyNxt() {}
     [void] connect() {
         $this.connection.login()
-        $this.connection.api.get_token()
+        $this.connection.api.get_access_token()
     }
     hidden [string] get_authorization() {
         return "$($this.connection.api.token['type']) $($this.connection.api.token['access'])"
