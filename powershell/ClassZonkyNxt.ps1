@@ -1,6 +1,14 @@
 #Requires -Version 5
 Add-Type -AssemblyName System.Web
 
+class zToken {
+    [string]$access_token
+    [string]$token_type
+    [string]$refresh_token
+    [int]$expires_in
+    [string]$scope     
+}
+
 class zCredential {
     [string]$email
     [securestring]$password
@@ -23,7 +31,7 @@ class zApi {
     [string]$client_id
     [string]$name
     [string]$password
-    [System.Management.Automation.PSCustomObject]$oauth
+    [zToken]$oauth = [zToken]::new()
     [System.Collections.Hashtable]$token = @{
         'access' = ''
         'type' = ''
@@ -52,8 +60,7 @@ class zApi {
         $body = "scope=$($this.get_scope())&grant_type=authorization_code&code=$($this.authorization_code)&redirect_uri=$($this.redirect_uri)"
         $uri = "https://api.zonky.cz/oauth/token"
         try {
-            $tkn = Invoke-RestMethod -Method POST -Uri $URI -Headers $Headers -Body $Body -UseBasicParsing
-            
+            $this.oauth = [zToken](Invoke-RestMethod -Method POST -Uri $URI -Headers $Headers -Body $Body -UseBasicParsing)            
         } catch {
             $ex = $_
             Write-Host $ex.Exception.Message
@@ -117,16 +124,19 @@ class zLogin {
 
         } finally {
             $ie.Stop()
-            $ie.Quit()        
+            $ie.Quit()
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($ie)
+            Remove-Variable ie       
         }
     }
 }
 
 class ZonkyNxt {
-    hidden [zLogin]$connection = [zLogin]::new()
+    hidden [zLogin]$connection
 
     ZonkyNxt() {}
-    [void] connect() {
+    [void] connect([string]$PwdFilePath = 'ZonkyNxt.pwd') {
+        $this.connection = [zLogin]::new($PwdFilePath)
         $this.connection.login()
         $this.connection.api.get_access_token()
     }
