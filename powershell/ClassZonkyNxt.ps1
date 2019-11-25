@@ -132,7 +132,10 @@ class zLogin {
 }
 
 class ZonkyNxt {
+    hidden [int]$page_size = 20
     hidden [zLogin]$connection
+    [System.Object[]]$market_loans
+    [System.Object[]]$active_investments
 
     ZonkyNxt() {}
     [void] connect([string]$PwdFilePath = 'ZonkyNxt.pwd') {
@@ -141,31 +144,58 @@ class ZonkyNxt {
         $this.connection.api.get_access_token()
     }
     hidden [string] get_authorization() {
-        return "$($this.connection.api.token['type']) $($this.connection.api.token['access'])"
+        return "$($this.connection.api.oauth.token_type) $($this.connection.api.oauth.access_token)"
     }
     hidden [string] get_user_agent() {
         return "$($this.connection.api.user_agent)"
     }
-    [void] get_active_investments() {
+    [void] get_marketplace() {
+        $page=0
         $Headers = @{
             'Content-Type'  = 'application/x-www-form-urlencoded'
             'Authorization' = $this.get_authorization()
-            'User-Agent' = $this.get_user_agent()
-        }
-        #/users/me/investments?loan.status__in=%5B%22ACTIVE%22,%22PAID_OFF%22%5D&status__eq=ACTIVE
-        $uri = "https://api.zonky.cz/users/me/investments?loan.status__in=[ACTIVE,PAID_OFF]&status__eq=ACTIVE"
-        $res = Invoke-RestMethod -Method Get -Uri $URI -Headers $Headers -UseBasicParsing
-    }
-    [void] get_marketplace([string]$bearer, [int]$page, [int]$size) {
-        $Headers = @{
-            'Content-Type'  = 'application/x-www-form-urlencoded'
-            'Authorization' = $this.get_authorization()
-            'User-Agent' = $this.get_user_agent()
-            'X-Page'        = "$page"
-            'X-Size'        = "$size"
+            'User-Agent'    = $this.get_user_agent()
+            'X-Page'        = $page
+            'X-Size'        = $this.page_size
         }
         #/users/me/investments?loan.status__in=%5B%22ACTIVE%22,%22PAID_OFF%22%5D&status__eq=ACTIVE
         $uri = "https://api.zonky.cz/loans/marketplace?nonReservedRemainingInvestment__gt=0"
-        $res = Invoke-RestMethod -Method Get -Uri $URI -Headers $Headers  -UseBasicParsing
+        $res = Invoke-WebRequest -Method Get -Uri $URI -Headers $Headers -UseBasicParsing
+        $this.market_loans = $res.content | ConvertFrom-Json
+        $record_count = $this.page_size
+        $loan_count = $res.Headers['X-Total']
+        while ($record_count -lt $loan_count) {
+            $page++
+            $Headers['X-Page']=$page
+            $Headers['X-Size']=$this.page_size
+            $res = Invoke-WebRequest -Method Get -Uri $URI -Headers $Headers -UseBasicParsing
+            $this.market_loans += $res.content | ConvertFrom-Json
+            $record_count += $this.page_size
+        }
     }       
+        [void] get_investments() {
+        $page=0
+        $Headers = @{
+            'Content-Type'  = 'application/x-www-form-urlencoded'
+            'Authorization' = $this.get_authorization()
+            'User-Agent'    = $this.get_user_agent()
+            'X-Page'        = $page
+            'X-Size'        = $this.page_size
+        }
+        #/users/me/investments?loan.status__in=%5B%22ACTIVE%22,%22PAID_OFF%22%5D&status__eq=ACTIVE
+        $uri = "https://api.zonky.cz/users/me/investments?loan.status__in=[ACTIVE,PAID_OFF]"
+        $res = Invoke-WebRequest -Method Get -Uri $URI -Headers $Headers -UseBasicParsing
+        $this.active_investments = $res.content | ConvertFrom-Json
+        $record_count = $this.page_size
+        $loan_count = $res.Headers['X-Total']
+        while ($record_count -lt $loan_count) {
+            $page++
+            $Headers['X-Page']=$page
+            $Headers['X-Size']=$this.page_size
+            $res = Invoke-WebRequest -Method Get -Uri $URI -Headers $Headers -UseBasicParsing
+            $this.active_investments += $res.content | ConvertFrom-Json
+            $record_count += $this.page_size
+        }
+    }
 }
+
