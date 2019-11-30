@@ -24,7 +24,7 @@ class zCredential {
 }
 
 class zApi {
-    [string[]]$scope = @('SCOPE_APP_BASIC_INFO','SCOPE_INVESTMENT_READ')
+    [string[]]$scope = @('SCOPE_APP_BASIC_INFO','SCOPE_INVESTMENT_READ','SCOPE_RESERVATIONS_READ')
     [string]$redirect_uri = 'https://app.zonky.cz/api/oauth/code'
     [string]$user_agent = 'zonkyNXT/1.0 (https://github.com/MilanNXT/ZonkyNxt)'    
     [string]$authorization_code
@@ -134,8 +134,8 @@ class zLogin {
 class ZonkyNxt {
     hidden [int]$page_size = 20
     hidden [zLogin]$connection
-    [System.Object[]]$market_loans
-    [System.Object[]]$active_investments
+    [System.Object[]]$marketplace
+    [System.Object[]]$investments
 
     ZonkyNxt() {}
     [void] connect([string]$PwdFilePath = 'ZonkyNxt.pwd') {
@@ -161,7 +161,7 @@ class ZonkyNxt {
         #/users/me/investments?loan.status__in=%5B%22ACTIVE%22,%22PAID_OFF%22%5D&status__eq=ACTIVE
         $uri = "https://api.zonky.cz/loans/marketplace?nonReservedRemainingInvestment__gt=0"
         $res = Invoke-WebRequest -Method Get -Uri $URI -Headers $Headers -UseBasicParsing
-        $this.market_loans = $res.content | ConvertFrom-Json
+        $this.marketplace = $res.content | ConvertFrom-Json
         $record_count = $this.page_size
         $loan_count = $res.Headers['X-Total']
         while ($record_count -lt $loan_count) {
@@ -169,11 +169,11 @@ class ZonkyNxt {
             $Headers['X-Page']=$page
             $Headers['X-Size']=$this.page_size
             $res = Invoke-WebRequest -Method Get -Uri $URI -Headers $Headers -UseBasicParsing
-            $this.market_loans += $res.content | ConvertFrom-Json
+            $this.marketplace += $res.content | ConvertFrom-Json
             $record_count += $this.page_size
         }
     }       
-        [void] get_investments() {
+    [void] get_investments() {
         $page=0
         $Headers = @{
             'Content-Type'  = 'application/x-www-form-urlencoded'
@@ -183,9 +183,10 @@ class ZonkyNxt {
             'X-Size'        = $this.page_size
         }
         #/users/me/investments?loan.status__in=%5B%22ACTIVE%22,%22PAID_OFF%22%5D&status__eq=ACTIVE
-        $uri = "https://api.zonky.cz/users/me/investments?loan.status__in=[ACTIVE,PAID_OFF]"
+        #$uri = "https://api.zonky.cz/users/me/investments?loan.status__in=[ACTIVE,PAID_OFF]"
+        $uri = "https://api.zonky.cz/users/me/investments"
         $res = Invoke-WebRequest -Method Get -Uri $URI -Headers $Headers -UseBasicParsing
-        $this.active_investments = $res.content | ConvertFrom-Json
+        $this.investments = $res.content | ConvertFrom-Json
         $record_count = $this.page_size
         $loan_count = $res.Headers['X-Total']
         while ($record_count -lt $loan_count) {
@@ -193,7 +194,7 @@ class ZonkyNxt {
             $Headers['X-Page']=$page
             $Headers['X-Size']=$this.page_size
             $res = Invoke-WebRequest -Method Get -Uri $URI -Headers $Headers -UseBasicParsing
-            $this.active_investments += $res.content | ConvertFrom-Json
+            $this.investments += $res.content | ConvertFrom-Json
             $record_count += $this.page_size
         }
     }
