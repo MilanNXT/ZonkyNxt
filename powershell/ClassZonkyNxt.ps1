@@ -1,5 +1,6 @@
 #Requires -Version 5
 Add-Type -AssemblyName System.Web
+Set-StrictMode -Version latest
 
 class zToken {
     [string]$access_token
@@ -149,7 +150,7 @@ class ZonkyNxt {
     hidden [string] get_user_agent() {
         return "$($this.connection.api.user_agent)"
     }
-    [void] get_marketplace() {
+    [void] GetMarketplace() {
         $page=0
         $Headers = @{
             'Content-Type'  = 'application/x-www-form-urlencoded'
@@ -173,7 +174,7 @@ class ZonkyNxt {
             $record_count += $this.page_size
         }
     }       
-    [void] get_investments() {
+    [void] GetInvestments() {
         $page=0
         $Headers = @{
             'Content-Type'  = 'application/x-www-form-urlencoded'
