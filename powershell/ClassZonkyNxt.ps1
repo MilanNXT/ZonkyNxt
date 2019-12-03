@@ -112,6 +112,7 @@ class zLogin {
                 $ie.document.getElementById("email").value = $this.credential.email
                 $ie.document.getElementById("password").value = $this.credential.get_plain_password()
                 $ie.Document.getElementById("login-form").submit()
+                # $ie.Document.getElementById("smsAuthCode")
                 while ($ie.ReadyState -ne 4) {Start-Sleep -m 100}
             }
             if ($ie.LocationURL) {
