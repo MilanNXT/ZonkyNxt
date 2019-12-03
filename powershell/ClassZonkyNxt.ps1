@@ -140,16 +140,16 @@ class ZonkyNxt {
     [System.Object[]]$investments
 
     ZonkyNxt() {}
-    [void] connect([string]$PwdFilePath = 'ZonkyNxt.pwd') {
-        $this.connection = [zLogin]::new($PwdFilePath)
-        $this.connection.login()
-        $this.connection.api.get_access_token()
-    }
     hidden [string] get_authorization() {
         return "$($this.connection.api.oauth.token_type) $($this.connection.api.oauth.access_token)"
     }
     hidden [string] get_user_agent() {
         return "$($this.connection.api.user_agent)"
+    }
+    [void] connect([string]$PwdFilePath = 'ZonkyNxt.pwd') {
+        $this.connection = [zLogin]::new($PwdFilePath)
+        $this.connection.login()
+        $this.connection.api.get_access_token()
     }
     [void] GetMarketplace() {
         $page=0
